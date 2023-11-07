@@ -28,8 +28,7 @@ import typing
 import traceback
 import bittensor as bt
 
-# import this repo
-import template
+from folding.miners.forward import forward
 
 
 def get_config():
@@ -152,16 +151,6 @@ def main(config):
         )
         return prirority
 
-    # This is the core miner function, which decides the miner's response to a valid, high-priority request.
-    def dummy(synapse: template.protocol.Dummy) -> template.protocol.Dummy:
-        # TODO(developer): Define how miners should process requests.
-        # This function runs after the synapse has been deserialized (i.e. after synapse.data is available).
-        # This function runs after the blacklist and priority functions have been called.
-        # Below: simple template logic: return the input value multiplied by 2.
-        # If you change this, your miner will lose emission in the network incentive landscape.
-        synapse.dummy_output = synapse.dummy_input * 2
-        return synapse
-
     # Step 6: Build and link miner functions to the axon.
     # The axon handles request processing, allowing validators to send this process requests.
     axon = bt.axon(wallet=wallet, config=config)
@@ -170,7 +159,7 @@ def main(config):
     # Attach determiners which functions are called when servicing a request.
     bt.logging.info(f"Attaching forward function to axon.")
     axon.attach(
-        forward_fn=dummy,
+        forward_fn=forward,
         blacklist_fn=blacklist_fn,
         priority_fn=priority_fn,
     )
@@ -178,7 +167,7 @@ def main(config):
     # Serve passes the axon information to the network + netuid we are hosting on.
     # This will auto-update if the axon port of external ip have changed.
     bt.logging.info(
-        f"Serving axon {dummy} on network: {config.subtensor.chain_endpoint} with netuid: {config.netuid}"
+        f"Serving axon {forward} on network: {config.subtensor.chain_endpoint} with netuid: {config.netuid}"
     )
     axon.serve(netuid=config.netuid, subtensor=subtensor)
 

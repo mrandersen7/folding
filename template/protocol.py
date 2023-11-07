@@ -40,37 +40,42 @@ import bittensor as bt
 #   assert dummy_output == 2
 
 
-class Dummy(bt.Synapse):
+class Protein(bt.Synapse):
     """
-    A simple dummy protocol representation which uses bt.Synapse as its base.
-    This protocol helps in handling dummy request and response communication between
+    A simple protein protocol representation which uses bt.Synapse as its base.
+    This protocol helps in handling request and response communication between
     the miner and the validator.
 
     Attributes:
-    - dummy_input: An integer value representing the input request sent by the validator.
-    - dummy_output: An optional integer value which, when filled, represents the response from the miner.
+    - protein_pdb: An integer value representing the input request sent by the validator.
+    - ff: An integer value representing the input request sent by the validator.
+    - box: An integer value representing the input request sent by the validator.
+    - response: An optional integer value which, when filled, represents the response from the miner.
     """
 
     # Required request input, filled by sending dendrite caller.
-    dummy_input: int
+    protein_pdb: str
+    ff: str
+    box: str
 
     # Optional request output, filled by recieving axon.
-    dummy_output: typing.Optional[int] = None
+    response: typing.Optional[dict] = None
+    
 
     def deserialize(self) -> int:
         """
-        Deserialize the dummy output. This method retrieves the response from
-        the miner in the form of dummy_output, deserializes it and returns it
+        Deserialize the output. This method retrieves the response from
+        the miner in the form of a bytestream, deserializes it and returns it
         as the output of the dendrite.query() call.
 
         Returns:
-        - int: The deserialized response, which in this case is the value of dummy_output.
+        - dict: The deserialized response, which in this case is the value of dummy_output.
 
         Example:
         Assuming a Dummy instance has a dummy_output value of 5:
-        >>> dummy_instance = Dummy(dummy_input=4)
-        >>> dummy_instance.dummy_output = 5
-        >>> dummy_instance.deserialize()
-        5
+        >>> protein_synapse = Protein(protein_pdb='1a2b', ff='amber', box='cubic')
+        >>> protein_synapse.response = {'protein_pdb': '1a2b', 'ff': 'amber', 'box': 'cubic', 'response': 5}
+        >>> protein_synapse.deserialize()
+        {'protein_pdb': '1a2b', 'ff': 'amber', 'box': 'cubic', 'response': 5}
         """
-        return self.dummy_output
+        return self.response

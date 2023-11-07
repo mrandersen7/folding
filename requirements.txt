@@ -1,2 +1,5 @@
 bittensor
 torch
+loguru
+
+# Somehow we need to take care of GROMACS installation https://manual.gromacs.org/5.1.2/install-guide/index.html

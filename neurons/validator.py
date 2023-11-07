@@ -21,70 +21,29 @@
 # TODO(developer): Rewrite based on protocol defintion.
 
 # Step 1: Import necessary libraries and modules
-import os
-import time
 import copy
+import asyncio
 import torch
-import argparse
-import traceback
 import bittensor as bt
 from traceback import print_exception
 
-
-# import this repo
 from folding.validators.forward import forward
-
-
-# Step 2: Set up the configuration parser
-# This function is responsible for setting up and parsing command-line arguments.
-def get_config():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--alpha", default=0.9, type=float, help="The weight moving average scoring."
-    )
-    # TODO(developer): Adds your custom validator arguments to the parser.
-    parser.add_argument(
-        "--custom", default="my_custom_value", help="Adds a custom value to the parser."
-    )
-    # Adds override arguments for network and netuid.
-    parser.add_argument("--netuid", type=int, default=1, help="The chain subnet uid.")
-    # Adds subtensor specific arguments i.e. --subtensor.chain_endpoint ... --subtensor.network ...
-    bt.subtensor.add_args(parser)
-    # Adds logging specific arguments i.e. --logging.debug ..., --logging.trace .. or --logging.logging_dir ...
-    bt.logging.add_args(parser)
-    # Adds wallet specific arguments i.e. --wallet.name ..., --wallet.hotkey ./. or --wallet.path ...
-    bt.wallet.add_args(parser)
-    # Parse the config (will take command-line arguments if provided)
-    # To print help message, run python3 template/validator.py --help
-    config = bt.config(parser)
-
-    # Step 3: Set up logging directory
-    # Logging is crucial for monitoring and debugging purposes.
-    config.full_path = os.path.expanduser(
-        "{}/{}/{}/netuid{}/{}".format(
-            config.logging.logging_dir,
-            config.wallet.name,
-            config.wallet.hotkey,
-            config.netuid,
-            "validator",
-        )
-    )
-    # Ensure the logging directory exists.
-    if not os.path.exists(config.full_path):
-        os.makedirs(config.full_path, exist_ok=True)
-
-    # Return the parsed config.
-    return config
+from folding.validators.config import add_args, check_config, config
+from folding.validators.weights import should_set_weights, set_weights
 
 
 class neuron:
     @classmethod
     def check_config(cls, config: "bt.Config"):
-        get_config(cls, config)
+        check_config(cls, config)
 
-    # @classmethod
-    # def config(cls):
-    #     return config(cls)
+    @classmethod
+    def add_args(cls, parser):
+        add_args(cls, parser)
+
+    @classmethod
+    def config(cls):
+        return config(cls)
 
     subtensor: "bt.subtensor"
     wallet: "bt.wallet"
@@ -135,6 +94,7 @@ class neuron:
         self.moving_averaged_scores = torch.zeros((self.metagraph.n)).to(self.device)
         bt.logging.debug(str(self.moving_averaged_scores))
 
+        self.loop = asyncio.get_event_loop()
         # Init step.
         self.step = 0
 
@@ -148,14 +108,24 @@ class neuron:
                         f"Validator is not registered - hotkey {self.wallet.hotkey.ss58_address} not in metagraph"
                     )
 
-                # The forward method is what acctually executes a full round of validations
-                # TODO: Run asynchronously.
-                forward(self)
+                bt.logging.info(f"step({self.step}) block({self.metagraph.block})")
+                # Run multiple forwards.
+                async def run_forward():
+                    coroutines = [
+                        forward(self)
+                        for _ in range(self.config.neuron.num_concurrent_forwards)
+                    ]
+                    await asyncio.gather(*coroutines)
+
+                self.loop.run_until_complete(run_forward())
+                # The forward method is what acctually creates a protein folding challenge, sends it to the
+                # miners, and then scores the results.
+                forward(self, verbose=True)
 
                 # TODO: Set the weights on chain.
-                # if should_set_weights(self):
-                #     set_weights(self)
-                # self.step += 1
+                if should_set_weights(self):
+                    set_weights(self)
+                self.step += 1
 
         except Exception as err:
             bt.logging.error("Error in training loop", str(err))
