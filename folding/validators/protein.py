@@ -1,9 +1,10 @@
 
 import subprocess
+import gmxapi as gmx
 
 
 class Protein:
-    
+
     @property
     def name(self):
         return self.protein_pdb.split('.')[0]
@@ -37,15 +38,13 @@ class Protein:
         """This function creates the environment the protein is folding in
         """
 
-    def score(self):
-        """This function scores the protein configuration
-        """
 
     def preprocess(self):
 
         # Strip out all the atoms in the file that are not the protein itself like water and ligands
         # These are labeled with HEATM and this can be done with whatever text file processing method is preferred
-        # TODO: make
+        # TODO: everything below using only the gromacs python api
+
         strip_atoms = 'grep -v HETATM test_protein.pdb > temp_clean_protein.pdb'
         subprocess.run(strip_atoms.split(), shell=True, check=True)
 
@@ -93,5 +92,11 @@ class Protein:
         # -v can be added as a term to make this step print out progress. It normally takes a little while
         solve_first = 'gmx mdrun -deffnm em'
         subprocess.run(solve_first.split(), shell=True, check=True)
-        
+
         self.remaining_steps.remove('1')
+        
+    
+    def energy(self, md_output):
+        """This is potentailly where we calculate the energy of an md simulation result
+        """
+        return 42

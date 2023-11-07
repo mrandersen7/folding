@@ -20,47 +20,24 @@
 import typing
 import bittensor as bt
 
-# TODO(developer): Rewrite with your protocol definition.
-
-# This is the protocol for the dummy miner and validator.
-# It is a simple request-response protocol where the validator sends a request
-# to the miner, and the miner responds with a dummy response.
-
-# ---- miner ----
-# Example usage:
-#   def dummy( synapse: Dummy ) -> Dummy:
-#       synapse.dummy_output = synapse.dummy_input + 1
-#       return synapse
-#   axon = bt.axon().attach( dummy ).serve(netuid=...).start()
-
-# ---- validator ---
-# Example usage:
-#   dendrite = bt.dendrite()
-#   dummy_output = dendrite.query( Dummy( dummy_input = 1 ) )
-#   assert dummy_output == 2
+import folding
 
 
-class Protein(bt.Synapse):
+class Synapse(bt.Synapse):
     """
-    A simple protein protocol representation which uses bt.Synapse as its base.
+    A protocol representation which uses bt.Synapse as its base.
     This protocol helps in handling request and response communication between
     the miner and the validator.
 
     Attributes:
-    - protein_pdb: An integer value representing the input request sent by the validator.
-    - ff: An integer value representing the input request sent by the validator.
-    - box: An integer value representing the input request sent by the validator.
-    - response: An optional integer value which, when filled, represents the response from the miner.
+    - protein: A Protein object, which contains the necessary details of the protein to be folded.
     """
 
     # Required request input, filled by sending dendrite caller.
-    protein_pdb: str
-    ff: str
-    box: str
+    protein: folding.protein.Protein
 
     # Optional request output, filled by recieving axon.
-    response: typing.Optional[dict] = None
-    
+    md_output: typing.Optional[dict] = None
 
     def deserialize(self) -> int:
         """
@@ -69,13 +46,6 @@ class Protein(bt.Synapse):
         as the output of the dendrite.query() call.
 
         Returns:
-        - dict: The deserialized response, which in this case is the value of dummy_output.
-
-        Example:
-        Assuming a Dummy instance has a dummy_output value of 5:
-        >>> protein_synapse = Protein(protein_pdb='1a2b', ff='amber', box='cubic')
-        >>> protein_synapse.response = {'protein_pdb': '1a2b', 'ff': 'amber', 'box': 'cubic', 'response': 5}
-        >>> protein_synapse.deserialize()
-        {'protein_pdb': '1a2b', 'ff': 'amber', 'box': 'cubic', 'response': 5}
+        - dict: The serialized response, which in this case is the value of md_output.
         """
-        return self.response
+        return self.md_output

@@ -1,7 +1,6 @@
 
 import time
 import torch
-import random
 import argparse
 import bittensor as bt
 
@@ -11,6 +10,7 @@ from typing import List
 import folding
 from folding.validators.protein import Protein
 from folding.validators.utils import get_random_uids
+from folding.validators.reward import get_rewards
 
 
 async def run_step(
@@ -54,7 +54,7 @@ async def run_step(
     Final Outputs:
     ________.xvg
     """
-    
+
     # Second validation checkpoint: After temperature and pressure runs
     # Third validation checkpoint: Post analysis on any metric such as RMSD, radius of gyration, etc.
 
@@ -69,7 +69,7 @@ async def run_step(
     # Get the list of uids to query for this step.
     uids = get_random_uids(self, k=k, exclude=exclude).to(self.device)
     axons = [self.metagraph.axons[uid] for uid in uids]
-    synapse = folding.protocol.Folding(protein_pdb=protein.pdb, ff=protein.ff, box=protein.box)
+    synapse = folding.protocol.Synapse(protein)
 
     # Make calls to the network with the prompt.
     responses: List[bt.Synapse] = await self.dendrite(
@@ -79,24 +79,10 @@ async def run_step(
     )
 
     # Compute the rewards for the responses given the prompt.
-    rewards: torch.FloatTensor = torch.zeros(len(responses), dtype=torch.float32).to(
-        self.device
-    )
+    rewards: torch.FloatTensor = get_rewards(protein, responses)
 
-    # Find the best completion given the rewards vector.
+    # Find the best response given the rewards vector.
     best: str = responses[rewards.argmax(dim=0)].strip()
-
-    # Get completion times
-    response_times: List[float] = [
-        comp.dendrite.process_time if comp.dendrite.process_time != None else 0
-        for comp in responses
-    ]
-    response_status_messages: List[str] = [
-        str(comp.dendrite.status_message) for comp in responses
-    ]
-    response_status_codes: List[str] = [
-        str(comp.dendrite.status_code) for comp in responses
-    ]
 
     # Compute forward pass rewards, assumes followup_uids and answer_uids are mutually exclusive.
     # shape: [ metagraph.n ]
@@ -117,9 +103,9 @@ async def run_step(
             "block": self.metagraph.block,
             "step_length": time.time() - start_time,
             "uids": uids.tolist(),
-            "response_times": response_times,
-            "response_status_messages": response_status_messages,
-            "response_status_codes": response_status_codes,
+            "response_times": [resp.dendrite.process_time if resp.dendrite.process_time != None else 0 for resp in responses],
+            "response_status_messages": [str(resp.dendrite.status_message) for resp in responses],
+            "response_status_codes": [str(resp.dendrite.status_code) for resp in responses],
             "rewards": rewards.tolist(),
             "best": best,
         }
@@ -130,9 +116,10 @@ async def run_step(
         logger.log("EVENTS", "events", **event)
 
 async def forward(self):
-   
+
     # 1. Select the molecule from online protein database, the forcefield, and the box
     # NOTE: The number of possible inputs should be effectively infinite (or at least very large) so that miners cannot lookup results from earlier runs
+
     protein = Protein(argparse.parse_args(self.config.protein))
 
     # 2. Creatie the environment and solution the protein is folding in: Preprocess the input files, cleaning up files and generating required inputs
@@ -144,7 +131,7 @@ async def forward(self):
         protein.run_first_step()
 
     # 4. Send the preprocessed inputs and other required details to the miners who will carry out the full MD simulation, score the results and log
-    event = await run_step(
+    await run_step(
         self,
         protein=protein,
         k=self.config.neuron.sample_size,
