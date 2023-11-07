@@ -111,7 +111,7 @@ def main(config):
     # Step 5: Set up miner functionalities
     # The following functions control the miner's response to incoming requests.
     # The blacklist function decides if a request should be ignored.
-    def blacklist_fn(synapse: template.protocol.Dummy) -> typing.Tuple[bool, str]:
+    def blacklist_fn(synapse: bt.Synapse) -> typing.Tuple[bool, str]:
         # TODO(developer): Define how miners should blacklist requests. This Function
         # Runs before the synapse data has been deserialized (i.e. before synapse.data is available).
         # The synapse is instead contructed via the headers of the request. It is important to blacklist
@@ -135,7 +135,7 @@ def main(config):
 
     # The priority function determines the order in which requests are handled.
     # More valuable or higher-priority requests are processed before others.
-    def priority_fn(synapse: template.protocol.Dummy) -> float:
+    def priority_fn(synapse: bt.Synapse) -> float:
         # TODO(developer): Define how miners should prioritize requests.
         # Miners may recieve messages from multiple entities at once. This function
         # determines which request should be processed first. Higher values indicate

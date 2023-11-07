@@ -115,7 +115,7 @@ def add_args(cls, parser):
         "--neuron.timeout",
         type=float,
         help="Folding timeout.",
-        default=10,
+        default=30,
     )
 
     parser.add_argument(
@@ -139,7 +139,7 @@ def add_args(cls, parser):
         help="Force field for protein folding.",
         default="amber99sb-ildn",
     )
-    
+
     parser.add_argument(
         "--protein.box",
         type=str,
