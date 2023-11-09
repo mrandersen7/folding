@@ -46,10 +46,10 @@ def forward(synapse: folding.protocol.Synapse) -> folding.protocol.Synapse:
         os.system(cmd)
 
     # load the output files as bytes and add to synapse.md_output
-    for file in glob.glob('md_0_1.*'):
-        file_ext = file.split('.')[-1]
+    for filename in glob.glob('md_0_1.*'):
+        # file_ext = file.split('.')[-1]
         with open(file, 'rb') as f:
-            synapse.md_output[file_ext] = f.read()
+            synapse.md_output[filename] = f.read()
 
     return synapse
 
