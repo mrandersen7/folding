@@ -119,8 +119,7 @@ async def forward(self):
 
     # 1. Select the molecule from online protein database, the forcefield, and the box
     # NOTE: The number of possible inputs should be effectively infinite (or at least very large) so that miners cannot lookup results from earlier runs
-
-    protein = Protein(argparse.parse_args(self.config.protein))
+    protein = Protein(self.config.protein.parse_args())
 
     # 2. Creatie the environment and solution the protein is folding in: Preprocess the input files, cleaning up files and generating required inputs
     protein.preprocess()
@@ -136,5 +135,4 @@ async def forward(self):
         protein=protein,
         k=self.config.neuron.sample_size,
         timeout=self.config.neuron.timeout,
-
     )
