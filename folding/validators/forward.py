@@ -62,7 +62,7 @@ async def run_step(
     bt.logging.debug("run_step", protein, task)
 
     # Record event start time.
-    event = {"name": protein.name, 'task': task}
+    event = {"pdb_id": protein.pdb_id, 'task': task}
 
     start_time = time.time()
 
@@ -119,16 +119,12 @@ async def forward(self):
 
     # 1. Select the molecule from online protein database, the forcefield, and the box
     # NOTE: The number of possible inputs should be effectively infinite (or at least very large) so that miners cannot lookup results from earlier runs
+    protein = Protein(self.config.protein.parse_args())
 
-    protein = Protein(argparse.parse_args(self.config.protein))
-
-    # 2. Creatie the environment and solution the protein is folding in: Preprocess the input files, cleaning up files and generating required inputs
-    protein.preprocess()
-
+    # 2. Create the environment and solution the protein is folding in: Preprocess the input files, cleaning up files and generating required inputs
     # 3. Run first step locally
     # First validation checkpoint: After mdrun. Although there are a lot of instances where we can step in for validation, this is the most optimal one for determining run success
-    if self.config.run_first_step:
-        protein.run_first_step()
+    protein.generate_input_files(run_first_step=self.config.run_first_step)
 
     # 4. Send the preprocessed inputs and other required details to the miners who will carry out the full MD simulation, score the results and log
     await run_step(
@@ -136,5 +132,4 @@ async def forward(self):
         protein=protein,
         k=self.config.neuron.sample_size,
         timeout=self.config.neuron.timeout,
-
     )

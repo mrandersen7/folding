@@ -6,13 +6,6 @@ from typing import List
 from folding.validators.protein import Protein
 
 
-
-
-def reward(protein: Protein, response: bt.Synapse) -> float:
-
-    return protein.energy(response)
-
-
 def get_rewards(
     protein: Protein, responses: List[bt.Synapse]
 ) -> torch.FloatTensor:
@@ -31,7 +24,12 @@ def get_rewards(
     ]
 
     # Reward each response.
-    successful_rewards = [reward(protein, response) for response in successful_responses]
+    successful_rewards = [
+        protein.reward(md_output)
+        for md_output in successful_responses
+    ]
+
+    bt.logging.success(f"successful_rewards: {successful_rewards}")
 
     # Softmax rewards across samples.
     successful_rewards_normalized = torch.softmax(torch.tensor(successful_rewards), dim=0)

@@ -35,7 +35,9 @@ class Synapse(bt.Synapse):
 
     # Required request input, filled by sending dendrite caller.
     protein: folding.protein.Protein
-
+    
+    # Optional runtime args for gromacs
+    mdrun_args: str = ''
     # Optional request output, filled by recieving axon.
     md_output: typing.Optional[dict] = None
 

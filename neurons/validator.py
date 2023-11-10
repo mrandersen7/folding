@@ -89,6 +89,10 @@ class neuron:
         self.hotkeys = copy.deepcopy(self.metagraph.hotkeys)
         bt.logging.debug(str(self.metagraph))
 
+        # Dendrite pool for querying the network during  training.
+        bt.logging.debug("loading", "dendrite_pool")
+        self.dendrite = bt.dendrite(wallet=self.wallet)
+
         # Init Weights.
         bt.logging.debug("loading", "moving_averaged_scores")
         self.moving_averaged_scores = torch.zeros((self.metagraph.n)).to(self.device)
@@ -117,14 +121,13 @@ class neuron:
                     ]
                     await asyncio.gather(*coroutines)
 
-                self.loop.run_until_complete(run_forward())
-                # The forward method is what acctually creates a protein folding challenge, sends it to the
+                # The run_forward method is what acctually creates a protein folding challenge, sends it to the
                 # miners, and then scores the results.
-                forward(self, verbose=True)
+                self.loop.run_until_complete(run_forward())
 
-                # TODO: Set the weights on chain.
                 if should_set_weights(self):
                     set_weights(self)
+
                 self.step += 1
 
         except Exception as err:

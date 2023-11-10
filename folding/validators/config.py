@@ -66,7 +66,7 @@ def check_config(cls, config: "bt.Config"):
 def add_args(cls, parser):
     # Netuid Arg
     parser.add_argument(
-        "--netuid", type=int, help="Prompting network netuid", default=1
+        "--netuid", type=int, help="Prompting network netuid", default=123
     )
 
     parser.add_argument(

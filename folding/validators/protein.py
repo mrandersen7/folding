@@ -1,7 +1,13 @@
 
-import subprocess
-import gmxapi as gmx
+import os
+import glob
+import tqdm
+import requests
+import pandas as pd
+# import gmxapi as gmx
 
+# root level directory for the project (I HATE THIS)
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 class Protein:
 
@@ -9,94 +15,129 @@ class Protein:
     def name(self):
         return self.protein_pdb.split('.')[0]
 
-    def __init__(self, path=None, ff='default', box='dodecahedron'):
+    def __init__(self, pdb_id=None, ff='charmm27', box='dodecahedron'):
 
         # can either be local file path or a url to download
-        if path is None:
-            path = self.select_random_protein()
+        if pdb_id is None:
+            pdb_id = self.select_random_pdb_id()
 
-        self.protein_pdb = path
+        self.pdb_id = pdb_id
+
+        self.output_directory = os.path.join(ROOT_DIR,'data', self.pdb_id)
+        # if directory doesn't exist, download the pdb file and save it to the directory
+        if not os.path.exists(self.output_directory):
+            os.makedirs(self.output_directory)
+            self.download_pdb()
+
         self.ff = ff
         self.box = box
         # I don't know what this should look like
         self.energy_min = ['1','2','3','4']
+
         self.remaining_steps = []
 
     def __str__(self):
-        return f"Protein({self.protein_pdb}, {self.ff}, {self.box})"
+        return f"Protein(pdb_id={self.pdb_id}, ff={self.ff}, box={self.box}, output_directory={self.output_directory})"
 
 
     def __repr__(self):
         return self.__str__()
 
-    def select_random_protein(self):
+    def select_random_pdb_id(self):
         """This function is really important as its where you select the protein you want to fold
         """
-        return 'test_protein.pdb'
+        return '1UBQ'
 
-    def create_environment(self):
-        """This function creates the environment the protein is folding in
+    # Function to download PDB file
+    def download_pdb(self):
+        url = f'https://files.rcsb.org/download/{self.pdb_id}.pdb'
+        path = os.path.join(self.output_directory, f'{self.pdb_id}.pdb')
+        r = requests.get(url)
+        if r.status_code == 200:
+            with open(path, 'w') as file:
+                file.write(r.text)
+            print(f'PDB file {self.pdb_id}.pdb downloaded successfully to path {path!r}.')
+        else:
+            print(f'Failed to download PDB file with ID {self.pdb_id}.')
+
+    # Function to generate GROMACS input files
+    def generate_input_files(self):
+        # Change to output directory
+        os.chdir(self.output_directory)
+
+        # Commands to generate GROMACS input files
+        commands = [
+            f'gmx pdb2gmx -f {self.pdb_id}.pdb -ff {self.ff} -o processed.gro -water spce', # Input the file into GROMACS and get three output files: topology, position restraint, and a post-processed structure file
+            f'gmx editconf -f processed.gro -o newbox.gro -c -d 1.0 -bt {self.box}', # Build the "box" to run our simulation of one protein molecule
+            'gmx solvate -cp newbox.gro -cs spc216.gro -o solvated.gro -p topol.top',
+            'touch ions.mdp', # Create a file to add ions to the system
+            'gmx grompp -f ions.mdp -c solvated.gro -p topol.top -o ions.tpr',
+            'echo "13" | gmx genion -s ions.tpr -o solv_ions.gro -p topol.top -pname NA -nname CL -neutral',
+        ]
+        # Run the first step of the simulation
+        commands += [
+            'gmx grompp -f ../minim.mdp -c solv_ions.gro -p topol.top -o em.tpr',
+            'gmx mdrun -v -deffnm em' # Run energy minimization
+        ]
+
+        for cmd in tqdm.tqdm(commands):
+            os.system(cmd)
+
+        # print(os.listdir('.'))
+        # # change back to the parent directory
+        # os.chdir('../..')
+        # print(os.listdir('.'))
+        # print(os.listdir(self.output_directory))
+
+        print(glob.glob('em.*'))
+        # read the output files as strings and save to self.gro and self.topol
+        with open('em.gro', 'rb') as file:
+            self.gro = file.read()
+        with open('topol.top', 'rb') as file:
+            self.topol = file.read()
+
+        # We want to catch any errors that occur in the above steps and then return the error to the user
+        return True
+
+
+    def reward(self, md_output: dict):
+        """Calculates the free energy of the protein folding simulation
         """
 
+        edr_filename = None
+        for filename, content in md_output.items():
+            if filename.endswith('.edr'):
+                edr_filename = filename
+            # loop over all of the output files and save to local disk
+            with open(os.path.join(self.output_directory, filename), 'wb') as f:
+                f.write(content)
 
-    def preprocess(self):
+        if not edr_filename:
+            print('No .edr file found in md_output, so reward is zero!!!!!')
+            return 0
 
-        # Strip out all the atoms in the file that are not the protein itself like water and ligands
-        # These are labeled with HEATM and this can be done with whatever text file processing method is preferred
-        # TODO: everything below using only the gromacs python api
+        commands = [
+            f'gmx energy -f {edr_filename} -o free_energy.xvg'
+        ]
 
-        strip_atoms = 'grep -v HETATM test_protein.pdb > temp_clean_protein.pdb'
-        subprocess.run(strip_atoms.split(), shell=True, check=True)
+        # TODO: we still need to check that the following commands are run successfully
+        for cmd in tqdm.tqdm(commands):
+            os.system(cmd)
 
-        rejoin_atoms = 'grep -v CONECT temp_clean_protein.pdb > clean_protein.pdb'
-        subprocess.run(rejoin_atoms.split(), shell=True, check=True)
+        energy_path = os.path.join(self.output_directory, 'free_energy.xvg')
+        free_energy = self.get_average_free_energy(energy_path)
 
-        # Input the file into GROMACS and get three output files: topology, position restraint, and a post-processed structure file
-        # TODO: Input is the forcefield "charmm27"
-        # TODO: This fails if atoms are missing from the .pdb file.
-        create_env = 'gmx pdb2gmx -f clean_protein.pdb -o clean_protein.gro -water tip3p -ff "charmm27"'
-        subprocess.run(create_env.split(), shell=True, check=True)
+        # return the negative of the free energy so that larger is better
+        return -free_energy
 
-        # Build the "box" to run our simulation of one protein molecule
-        # TODO: If the molecule isn't spherical the rhombic dodecahedron wont be ideal but this is the most common type
-        # The distance d (nm) establishes the distance from the edge of the protein to the edge of the simulated box.
-        build_box = 'gmx editconf -f clean_protein.gro -o clean_protein_box.gro -c -d 1.0 -bt dodecahedron'
-        subprocess.run(build_box.split(), shell=True, check=True)
+    # Function to read the .xvg file and compute the average free energy
+    def get_average_free_energy(filename):
+        # Read the file, skip the header lines that start with '@' and '&'
+        data = pd.read_csv(filename, sep='\s+', comment='@', header=None)
 
-        # spc216.gro is included in gromacs and used in water tip3p solutions. This is the step that needs to change for non-water solution
-        create_solution = 'gmx solvate -cp clean_protein_box.gro -cs spc216.gro -o protein_solv.gro -p topol.top'
-        subprocess.run(create_solution.split(), shell=True, check=True)
+        # The energy values are typically in the second column
+        energy_values = data[1]
 
-        # Now we add a more natural salinity to our water solution (0.15M NaCl)
-        # You need to create an empty .mdp file to run the next function. This can be added to to alter molecular dynamics equations
-        make_empty_file = 'touch ions.mdp'
-        subprocess.run(make_empty_file.split(), shell=True, check=True)
-
-        add_ions = 'gmx grompp -f ions.mdp -c protein_solv.gro -p topol.top -o ions.tpr'
-        subprocess.run(add_ions.split(), shell=True, check=True)
-
-        # The print statement is one of the user inputs mentioned above to interact with the program
-        #TODO: print directly in python
-        print_inputs = 'printf "SOL\n" | gmx genion -s ions.tpr -o protein_solv.gro -conc 0.15 -p topol.top -pname NA -nname CL -neutral'
-        subprocess.run(print_inputs.split(), shell=True, check=True)
-
-
-    def run_first_step(self):
-        # This is another input that has increible importance on the protein folding. We are going to run energy minimization
-        # by first consoldating all our parameters and then running the minimization itself. The default works well in standard
-        # cases but there are a lot of knobs to turn
-
-        setup_first = 'gmx grompp -f energy_min_1 -c protein_solv.gro -p topol.top -o em.tpr'
-        subprocess.run(setup_first.split(), shell=True, check=True)
-
-        # -v can be added as a term to make this step print out progress. It normally takes a little while
-        solve_first = 'gmx mdrun -deffnm em'
-        subprocess.run(solve_first.split(), shell=True, check=True)
-
-        self.remaining_steps.remove('1')
-        
-    
-    def energy(self, md_output):
-        """This is potentailly where we calculate the energy of an md simulation result
-        """
-        return 42
+        # Calculate the average free energy
+        average_energy = energy_values.mean()
+        return average_energy
