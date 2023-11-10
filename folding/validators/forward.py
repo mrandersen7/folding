@@ -69,7 +69,7 @@ async def run_step(
     # Get the list of uids to query for this step.
     uids = get_random_uids(self, k=k, exclude=exclude).to(self.device)
     axons = [self.metagraph.axons[uid] for uid in uids]
-    synapse = folding.protocol.Synapse(protein)
+    synapse = folding.protocol.Synapse(pdb_id=protein.pdb_id, md_inputs=protein.md_inputs)
 
     # Make calls to the network with the prompt.
     responses: List[bt.Synapse] = await self.dendrite(

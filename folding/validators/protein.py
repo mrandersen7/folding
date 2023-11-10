@@ -1,7 +1,9 @@
 
 import os
+import re
 import glob
 import tqdm
+from dataclasses import dataclass
 import requests
 import pandas as pd
 # import gmxapi as gmx
@@ -9,13 +11,14 @@ import pandas as pd
 # root level directory for the project (I HATE THIS)
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+@dataclass
 class Protein:
 
     @property
     def name(self):
         return self.protein_pdb.split('.')[0]
 
-    def __init__(self, pdb_id=None, ff='charmm27', box='dodecahedron'):
+    def __init__(self, pdb_id=None, ff='charmm27', box='dodecahedron', max_steps=None):
 
         # can either be local file path or a url to download
         if pdb_id is None:
@@ -28,11 +31,38 @@ class Protein:
         if not os.path.exists(self.output_directory):
             os.makedirs(self.output_directory)
             self.download_pdb()
+        else:
+            print(f'PDB file {self.pdb_id}.pdb already exists in path {self.output_directory!r}.')
 
         self.ff = ff
         self.box = box
+
+        gro_path = os.path.join(self.output_directory, 'em.gro')
+        topol_path = os.path.join(self.output_directory, 'topol.top')
+
+        if not os.path.exists(gro_path) or not os.path.exists(topol_path):
+            self.generate_input_files()
+
+
+        required_files = ['em.gro','topol.top','posre.itp']
+        self.md_inputs = {}
+        for file in required_files:
+            self.md_inputs[file] = open(os.path.join(self.output_directory, file), 'r').read()
+            
+        mdp_files = ['nvt.mdp','npt.mdp','md.mdp']
+        for file in mdp_files:
+            content = open(os.path.join(self.output_directory, file), 'r').read()
+            if max_steps is not None:
+                content = re.sub('nsteps\\s+=\\s+\\d+',f'nsteps = {max_steps}',content)
+            self.md_inputs[file] = content
+        # # read the output files as strings and save to self.gro and self.topol
+        # with open(gro_path, 'r') as file:
+        #     self.gro = file.read()
+        # with open(topol_path, 'r') as file:
+        #     self.topol = file.read()
+
         # I don't know what this should look like
-        self.energy_min = ['1','2','3','4']
+        # self.energy_min = ['1','2','3','4']
 
         self.remaining_steps = []
 
@@ -80,28 +110,27 @@ class Protein:
             'gmx mdrun -v -deffnm em' # Run energy minimization
         ]
 
+        # strip away trailing number in forcefield name e.g charmm27 -> charmm
+        ff_base = ''.join([c for c in self.ff if not c.isdigit()])
+        # Copy mdp template files to output directory
+        commands += [
+            f'cp ../nvt-{ff_base}.mdp nvt.mdp',
+            f'cp ../npt-{ff_base}.mdp npt.mdp',
+            f'cp ../md-{ff_base}.mdp  md.mdp '
+        ]
+        print(commands)
+
+
         for cmd in tqdm.tqdm(commands):
             os.system(cmd)
-
-        # print(os.listdir('.'))
-        # # change back to the parent directory
-        # os.chdir('../..')
-        # print(os.listdir('.'))
-        # print(os.listdir(self.output_directory))
-
-        print(glob.glob('em.*'))
-        # read the output files as strings and save to self.gro and self.topol
-        with open('em.gro', 'rb') as file:
-            self.gro = file.read()
-        with open('topol.top', 'rb') as file:
-            self.topol = file.read()
 
         # We want to catch any errors that occur in the above steps and then return the error to the user
         return True
 
 
-    def reward(self, md_output: dict):
+    def reward(self, md_output: dict, mode: str='13'):
         """Calculates the free energy of the protein folding simulation
+        # TODO: Each miner files should be saved in a unique directory and possibly deleted after the reward is calculated
         """
 
         edr_filename = None
@@ -117,7 +146,7 @@ class Protein:
             return 0
 
         commands = [
-            f'gmx energy -f {edr_filename} -o free_energy.xvg'
+            f'echo "13"  | gmx energy -f {edr_filename} -o free_energy.xvg'
         ]
 
         # TODO: we still need to check that the following commands are run successfully
@@ -131,13 +160,12 @@ class Protein:
         return -free_energy
 
     # Function to read the .xvg file and compute the average free energy
-    def get_average_free_energy(filename):
+    def get_average_free_energy(self, filename):
         # Read the file, skip the header lines that start with '@' and '&'
-        data = pd.read_csv(filename, sep='\s+', comment='@', header=None)
+        with open(filename) as f:
+            last_line = f.readlines()[-1]
 
         # The energy values are typically in the second column
-        energy_values = data[1]
+        last_energy = last_line.split()[-1]
 
-        # Calculate the average free energy
-        average_energy = energy_values.mean()
-        return average_energy
+        return float(last_energy)
