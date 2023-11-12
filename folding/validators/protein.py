@@ -1,12 +1,13 @@
 
 import os
 import re
-import glob
 import tqdm
-from dataclasses import dataclass
 import requests
-import pandas as pd
-# import gmxapi as gmx
+
+import bittensor as bt
+
+from dataclasses import dataclass
+
 
 # root level directory for the project (I HATE THIS)
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -32,7 +33,7 @@ class Protein:
             os.makedirs(self.output_directory)
             self.download_pdb()
         else:
-            print(f'PDB file {self.pdb_id}.pdb already exists in path {self.output_directory!r}.')
+            bt.logging.info(f'PDB file {self.pdb_id}.pdb already exists in path {self.output_directory!r}.')
 
         self.ff = ff
         self.box = box
@@ -48,21 +49,15 @@ class Protein:
         self.md_inputs = {}
         for file in required_files:
             self.md_inputs[file] = open(os.path.join(self.output_directory, file), 'r').read()
-            
+
+
         mdp_files = ['nvt.mdp','npt.mdp','md.mdp']
         for file in mdp_files:
             content = open(os.path.join(self.output_directory, file), 'r').read()
             if max_steps is not None:
                 content = re.sub('nsteps\\s+=\\s+\\d+',f'nsteps = {max_steps}',content)
             self.md_inputs[file] = content
-        # # read the output files as strings and save to self.gro and self.topol
-        # with open(gro_path, 'r') as file:
-        #     self.gro = file.read()
-        # with open(topol_path, 'r') as file:
-        #     self.topol = file.read()
 
-        # I don't know what this should look like
-        # self.energy_min = ['1','2','3','4']
 
         self.remaining_steps = []
 
@@ -86,9 +81,10 @@ class Protein:
         if r.status_code == 200:
             with open(path, 'w') as file:
                 file.write(r.text)
-            print(f'PDB file {self.pdb_id}.pdb downloaded successfully to path {path!r}.')
+            bt.logging.info(f'PDB file {self.pdb_id}.pdb downloaded successfully from {url} to path {path!r}.')
         else:
-            print(f'Failed to download PDB file with ID {self.pdb_id}.')
+            bt.logging.error(f'Failed to download PDB file with ID {self.pdb_id} from {url}')
+            raise Exception(f'Failed to download PDB file with ID {self.pdb_id}.')
 
     # Function to generate GROMACS input files
     def generate_input_files(self):
@@ -118,8 +114,6 @@ class Protein:
             f'cp ../npt-{ff_base}.mdp npt.mdp',
             f'cp ../md-{ff_base}.mdp  md.mdp '
         ]
-        print(commands)
-
 
         for cmd in tqdm.tqdm(commands):
             os.system(cmd)
@@ -142,7 +136,7 @@ class Protein:
                 f.write(content)
 
         if not edr_filename:
-            print('No .edr file found in md_output, so reward is zero!!!!!')
+            bt.logging.error('No .edr file found in md_output, so reward is zero!')
             return 0
 
         commands = [
