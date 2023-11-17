@@ -17,7 +17,7 @@
   - [Before you proceed](#before-you-proceed)
 - [Background: What is protein folding?](#background)
 - [Description](#description)
-- [Features](#features)
+- [Notes](#notes)
 
 - [License](#license)
 
@@ -25,29 +25,16 @@
 
 ## Introduction
 
-  This is the start of the protein folding subnet. This subnet uses the Gromacs software to simulate molecular dynamics of proteins. We take a known initial 3D structure, and put in a cell-like environment and simluate it to know its end form. This is an essential step in the protein folding process and an entry point to many other high level techniques.
+  This is the start of the protein folding subnet. This subnet uses the GROMACS software to simulate molecular dynamics of proteins. We take a known initial 3D structure, and put in a cell-like environment and simluate it to know its end form. This is an essential step in the protein folding process and an entry point to many other high level techniques.
 
-General informaiton about gromacs can be found here: https://manual.gromacs.org/2023.2/index.html
+This subnet is designed to produce valuable academic research, but has been designed to be accessible to anyone as mining and validating does not require any background knowledge of molecular dynamics simulations.
 
-
-## Installation
-GROMACS
-You will need two packages to run this miner. Gromacs itself, and then a gromacs wrapper to make the base functions more python friendly. You can find the install process and requirements for the latest version of gromacs here:
-- https://manual.gromacs.org/2023.2/install-guide/index.html
-
-However, I found package managers make the process much simpler based on your preffered workflow:
-- Conda install: conda install -c conda-forge gromacs
-- Brew install: brew install gromacs
-
-GromacsWrapper
-For the most part, this leaves the base syntax intact. Installation instructions and more can be found here: https://gromacswrapper.readthedocs.io/en/latest/installation.html
-- Conda install: conda install -c conda-forge gromacswrapper
-- pip install: pip install GromacsWrapper
+General information about GROMACS can be found here: https://manual.gromacs.org/2023.2/index.html
 
 
 ### Before you proceed
 
-  Complexity of the problem aside, one of the current barriers to protein folding is computational ability. The proceess involved are complex and take time even with state of the art systems. In contrast to other subnets, this specific miner process can take hours. There are 3 mdrun functions, each will output a projected time when run. The first two will be about the same length, with the third taking about an order of magnitude longer. However, this is to run each run to 50,000 steps. If you wish to run a shorter simluation, you can use the maxh argument in each mdrun to limit how long you would like to spend (You can also limit steps if you prefer). Your simulations can be resumed later, or even continued with the "incomplete" data, but you should be aware of the timescale involved with undertaking this process first
+  Complexity of the problem aside, one of the current barriers to protein folding is **computational ability**. The processes involved are complex and take time even with state of the art systems. In contrast to other subnets, a single mining step can take hours. 
   
   
 ## Background  
@@ -56,12 +43,28 @@ For the most part, this leaves the base syntax intact. Installation instructions
 
   The process of this 2D structure folding on itself into a stable, 3D shape in a cell is called protein folding. For the most part, this process happens naturally and the end structure is in a much lower free energy state than the string. Like a bag of legos though, its not enough to just know the building blocks being used, its the way they're supposed to be put together that matters. "Form defines function" is a common phrase in biochemsitry, and it is the quest to determine form, and thus function of proetins, that makes this process so important to understand and simulate. 
 
-  Understanding how specific proteins fold unlocks the ability to cure many ailments. Folding@Home, a distribtred computing community dedicated to simulating protein folding, was able to help design a treatment for SARS-covid-19 by identifying a unique folding pattern in the spike protein of the virus that left it open to interference. Understanding how beta amyloid plaques fold, and thus misfold, is essential to understanding how Alzheimers Disease develops and to identify potential treamtent protocols.
+  Understanding how specific proteins fold unlocks the ability to cure many ailments. Folding@Home, a distributed computing community dedicated to simulating protein folding, was able to help design a treatment for SARS-covid-19 by identifying a unique folding pattern in the spike protein of the virus that left it open to interference. Understanding how beta amyloid plaques fold, and thus misfold, is essential to understanding how Alzheimers Disease develops and to identify potential treamtent protocols.
+
+
+## Installation
+### GROMACS
+You will need two packages to run either a miner or a validator. GROMACS itself, and then a GROMACS wrapper to make the base functions more python friendly. You can find the install process and requirements for the latest version of GROMACS here:
+- `https://manual.gromacs.org/2023.2/install-guide/index.html`
+
+However, I found package managers make the process much simpler based on your preffered workflow:
+- Conda install: `conda install -c conda-forge gromacs`
+- Brew install: `brew install gromacs`
+
+## GromacsWrapper
+For the most part, this leaves the base syntax intact. Installation instructions and more can be found here: https://gromacswrapper.readthedocs.io/en/latest/installation.html
+- Conda install: `conda install -c conda-forge gromacswrapper`
+- pip install: `pip install GromacsWrapper`
+
 
 
 ## Description
 
-In this subnet, validators create protein folding challenges for miners, who in turn run simulations based on GROMACS to obtain stable protein configurations  
+In this subnet, validators create protein folding challenges for miners, who in turn run simulations based on GROMACS to obtain stable protein configurations. 
 
 ### Validation
 
@@ -78,9 +81,9 @@ After verifying that miners performed the required computation, the free energy 
 ## Mining
 Each round of mining consists of the following steps:
 1. Miner receives the input files for a `pdb_id`.
-2. Miner runs **first** (_low_ fidelity) simulation using GROMACS which we call the temperature run.
-3. Miner runs **second** (_medium_ fidelity) simulation based on temperature run results, which we call the temperature + pressure run.
-4. Miner runs **third** (_high_ fidelity) simulation based on temperature + pressure run results, which we call the production run. This run lasts the longest.
+2. Miner runs **first** (_low_ fidelity) `mdrun` simulation using GROMACS which we call the temperature run.
+3. Miner runs **second** (_medium_ fidelity) `mdrun` simulation based on temperature run results, which we call the temperature + pressure run.
+4. Miner runs **third** (_high_ fidelity) `mdrun` simulation based on temperature + pressure run results, which we call the production run. This run lasts the longest.
 5. Miner responds with optimized protein coordinates from last run (or earlier run if not available).
 
 ## Notes
@@ -88,10 +91,12 @@ Several key inputs such as the `forcefield` and simulation `box` shape are kept 
 - Forcefield: "Charmm27"
 - Box: "Rhombic dodecahedron"
 
-Furthermore, we want to support the use of ML-based mining so that recent algorithmic advances (e.g. AlphaFold) can be leveraged. At present, this subnet is effectively a **specialized compute subnet** (rather than an algorithmic subnet)
-For now, we leave this work to miners.
 
-Gromacs itself is a rather robust package and is widely used within the research community. There are specific guides and functions if you wish to parallelize your processing or run these computations off of a GPU to speed things up.
+**Miner** simulations will output a projected time. The first two runs will be about the same length, with the third taking about an order of magnitude longer using a default number of steps = 50,000. The number of steps (`steps`) and the maximum allowed runtime (`maxh`) are easily configurable and should be employed by miners to prevent timing out. We also encourage miners to take advantage of 'early stopping' techniques so that simulations do not run past convergence.
+
+Furthermore, we want to support the use of ML-based mining so that recent algorithmic advances (e.g. AlphaFold) can be leveraged. At present, this subnet is effectively a **specialized compute subnet** (rather than an algorithmic subnet). For now, we leave this work to motivated miners.
+
+GROMACS itself is a rather robust package and is widely used within the research community. There are specific guides and functions if you wish to parallelize your processing or run these computations off of a GPU to speed things up.
 
 
 
