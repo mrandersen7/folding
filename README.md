@@ -31,8 +31,7 @@ This subnet is designed to produce valuable academic research, but has been desi
 
 General information about GROMACS can be found here: https://manual.gromacs.org/2023.2/index.html
 
-
-### Before you proceed
+__Before you proceed__
 
   Complexity of the problem aside, one of the current barriers to protein folding is **computational ability**. The processes involved are complex and take time even with state of the art systems. In contrast to other subnets, a single mining step can take hours. 
   
@@ -55,7 +54,7 @@ However, I found package managers make the process much simpler based on your pr
 - Conda install: `conda install -c conda-forge gromacs`
 - Brew install: `brew install gromacs`
 
-## GromacsWrapper
+### GromacsWrapper
 For the most part, this leaves the base syntax intact. Installation instructions and more can be found here: https://gromacswrapper.readthedocs.io/en/latest/installation.html
 - Conda install: `conda install -c conda-forge gromacswrapper`
 - pip install: `pip install GromacsWrapper`
