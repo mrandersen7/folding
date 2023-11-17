@@ -72,7 +72,7 @@ Each round of validation consists of the following steps:
 4. Validator sends input files to miners and waits until `timeout` is reached before optimized coordinates are returned.
 5. Validator scores miner responses based on optimality of protein coordinates.
 
-__Reward__
+__Reward__:
 After verifying that miners performed the required computation, the free energy of the protein is calculated based on the output file. The free energy will converge to a minimum value when the optimal protein configuration is obtained, and so each miner's rank is based on the optimality of their coordinates.
 
 ## Mining
@@ -83,19 +83,15 @@ Each round of mining consists of the following steps:
 4. Miner runs **third** (_high_ fidelity) simulation based on temperature + pressure run results, which we call the production run. This run lasts the longest.
 5. Miner responds with optimized protein coordinates from last run (or earlier run if not available).
 
-__Notes__
+## Notes
 Several key inputs such as the `forcefield` and simulation `box` shape are kept fixed in the present version, but will likely become additional variables in a future version.
 - Forcefield: "Charmm27"
 - Box: "Rhombic dodecahedron"
 
-Furthermore, we want to support the use of ML-based mining so that recent algorithmic advances (e.g. AlphaFold) can be leveraged. 
+Furthermore, we want to support the use of ML-based mining so that recent algorithmic advances (e.g. AlphaFold) can be leveraged. At present, this subnet is effectively a **specialized compute subnet** (rather than an algorithmic subnet)
 For now, we leave this work to miners.
 
-## Features
-
-- Gromacs itself is a rather robust package. There are specific guides and functions if you wish to parallelize your processing or run these computations off of a GPU to speed things up
-
-
+Gromacs itself is a rather robust package and is widely used within the research community. There are specific guides and functions if you wish to parallelize your processing or run these computations off of a GPU to speed things up.
 
 
 
