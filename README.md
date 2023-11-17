@@ -47,7 +47,7 @@ For the most part, this leaves the base syntax intact. Installation instructions
 
 ### Before you proceed
 
-  Comlpexity of the problem aside, one of the current barriers to protein folding is computational ability. The proceess involved are complex and take time even with state of the art systems. In contrast to other subnets, this specific miner process can take hours. There are 3 mdrun functions, each will output a projected time when run. The first two will be about the same length, with the third taking about an order of magnitude longer. However, this is to run each run to 50,000 steps. If you wish to run a shorter simluation, you can use the maxh argument in each mdrun to limit how long you would like to spend (You can also limit steps if you prefer). Your simulations can be resumed later, or even continued with the "incomplete" data, but you should be aware of the timescale involved with undertaking this process first
+  Complexity of the problem aside, one of the current barriers to protein folding is computational ability. The proceess involved are complex and take time even with state of the art systems. In contrast to other subnets, this specific miner process can take hours. There are 3 mdrun functions, each will output a projected time when run. The first two will be about the same length, with the third taking about an order of magnitude longer. However, this is to run each run to 50,000 steps. If you wish to run a shorter simluation, you can use the maxh argument in each mdrun to limit how long you would like to spend (You can also limit steps if you prefer). Your simulations can be resumed later, or even continued with the "incomplete" data, but you should be aware of the timescale involved with undertaking this process first
   
   
 ## Background  
@@ -56,18 +56,40 @@ For the most part, this leaves the base syntax intact. Installation instructions
 
   The process of this 2D structure folding on itself into a stable, 3D shape in a cell is called protein folding. For the most part, this process happens naturally and the end structure is in a much lower free energy state than the string. Like a bag of legos though, its not enough to just know the building blocks being used, its the way they're supposed to be put together that matters. "Form defines function" is a common phrase in biochemsitry, and it is the quest to determine form, and thus function of proetins, that makes this process so important to understand and simulate. 
 
-  Understanding how specific proteins fold unlocks the ability to cure many ailments. Folding@Home, a distribtred computing community dedicated to simulating protein folding, was able to help design a treatment for SARS-covid-19 by identifying a unique folding patter in the spike protein of the virus that left it open to interference. Understading how beta amyloid plaques fold, and this misfold, is essential to understanding how Alzheimers Disease develops and potential treamtent points.
+  Understanding how specific proteins fold unlocks the ability to cure many ailments. Folding@Home, a distribtred computing community dedicated to simulating protein folding, was able to help design a treatment for SARS-covid-19 by identifying a unique folding pattern in the spike protein of the virus that left it open to interference. Understanding how beta amyloid plaques fold, and thus misfold, is essential to understanding how Alzheimers Disease develops and to identify potential treamtent protocols.
 
 
 ## Description
 
-Validators receive an input of a pdb file for a protein, with optional inputs for force field, simluation box shape, and molecular dynamics files (Defaults are Charmm27, a rhombic dodecahedron, and provided charmm27 files). This is pre-processed, with the results sent to the miner
+In this subnet, validators create protein folding challenges for miners, who in turn run simulations based on GROMACS to obtain stable protein configurations  
 
-The miner then runs 3 simluations, first stabilizing for temperature, then pressure, then running the final "production" run. These files are then sent to the validator for evaluation
+### Validation
 
-The validator is going to evaluate the files for protein stablity to ensure things were run correctly, then rank outputs based on the lowest free energy state. Rewards will be distributed accordingly to all miners who particpated in the query and delivered valid results
+Each round of validation consists of the following steps:
+1. Validator randomly select a protein ID (aka. `pdb_id`) from a large database of options.
+2. Validator downloads the `.pdb` file for the selected `pdb_id`, which contains the initial coordinates of the protein.
+3. Validator runs some validation and preprocessing scripts to ensure that the problem is well posed.
+4. Validator sends input files to miners and waits until `timeout` is reached before optimized coordinates are returned.
+5. Validator scores miner responses based on optimality of protein coordinates.
 
+__Reward__
+After verifying that miners performed the required computation, the free energy of the protein is calculated based on the output file. The free energy will converge to a minimum value when the optimal protein configuration is obtained, and so each miner's rank is based on the optimality of their coordinates.
 
+## Mining
+Each round of mining consists of the following steps:
+1. Miner receives the input files for a `pdb_id`.
+2. Miner runs **first** (_low_ fidelity) simulation using GROMACS which we call the temperature run.
+3. Miner runs **second** (_medium_ fidelity) simulation based on temperature run results, which we call the temperature + pressure run.
+4. Miner runs **third** (_high_ fidelity) simulation based on temperature + pressure run results, which we call the production run. This run lasts the longest.
+5. Miner responds with optimized protein coordinates from last run (or earlier run if not available).
+
+__Notes__
+Several key inputs such as the `forcefield` and simulation `box` shape are kept fixed in the present version, but will likely become additional variables in a future version.
+- Forcefield: "Charmm27"
+- Box: "Rhombic dodecahedron"
+
+Furthermore, we want to support the use of ML-based mining so that recent algorithmic advances (e.g. AlphaFold) can be leveraged. 
+For now, we leave this work to miners.
 
 ## Features
 
