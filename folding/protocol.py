@@ -20,8 +20,7 @@
 import typing
 import bittensor as bt
 
-import folding
-
+from folding.validators.protein import Protein
 
 class Synapse(bt.Synapse):
     """
@@ -34,7 +33,8 @@ class Synapse(bt.Synapse):
     """
 
     # Required request input, filled by sending dendrite caller.
-    protein: folding.protein.Protein
+    pdb_id: str
+    md_inputs: typing.Optional[dict]
     
     # Optional runtime args for gromacs
     mdrun_args: str = ''
@@ -50,4 +50,5 @@ class Synapse(bt.Synapse):
         Returns:
         - dict: The serialized response, which in this case is the value of md_output.
         """
+        bt.logging.info(f'Deserializing response from miner, I am: {self}')
         return self.md_output
