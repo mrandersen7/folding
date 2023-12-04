@@ -29,7 +29,9 @@ class Synapse(bt.Synapse):
     the miner and the validator.
 
     Attributes:
-    - protein: A Protein object, which contains the necessary details of the protein to be folded.
+    - pdb_id: A Protein id, which contains the necessary details of the protein to be folded.
+    - md_inputs: A dictionary containing the input files for the gromacs simulation.
+    - mdrun_args: A string containing the arguments to be passed to the gromacs mdrun command.
     """
 
     # Required request input, filled by sending dendrite caller.
@@ -51,4 +53,5 @@ class Synapse(bt.Synapse):
         - dict: The serialized response, which in this case is the value of md_output.
         """
         bt.logging.info(f'Deserializing response from miner, I am: {self}')
+        # Right here we perform validation that the reponse has expected hash
         return self.md_output
