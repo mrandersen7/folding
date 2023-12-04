@@ -38,10 +38,10 @@ class Protein:
         self.ff = ff
         self.box = box
 
-        gro_path = os.path.join(self.output_directory, 'em.gro')
-        topol_path = os.path.join(self.output_directory, 'topol.top')
+        self.gro_path = os.path.join(self.output_directory, 'em.gro')
+        self.topol_path = os.path.join(self.output_directory, 'topol.top')
 
-        if not os.path.exists(gro_path) or not os.path.exists(topol_path):
+        if not os.path.exists(self.gro_path) or not os.path.exists(self.topol_path):
             self.generate_input_files()
 
 
@@ -49,7 +49,6 @@ class Protein:
         self.md_inputs = {}
         for file in required_files:
             self.md_inputs[file] = open(os.path.join(self.output_directory, file), 'r').read()
-
 
         mdp_files = ['nvt.mdp','npt.mdp','md.mdp']
         for file in mdp_files:
@@ -121,26 +120,41 @@ class Protein:
         # We want to catch any errors that occur in the above steps and then return the error to the user
         return True
 
+    def gro_id(self, path):
+        with open(path, 'r') as f:
+            name, length, *lines, _ = f.readlines()
+            length = int(length)
+            print(name, length, len(lines))
+        gro_id = hash(name+''.join([''.join(cols[:3] if len(cols)==6 else cols[:2]) for cols in lines[:length]]))
+        return gro_id
 
     def reward(self, md_output: dict, mode: str='13'):
         """Calculates the free energy of the protein folding simulation
         # TODO: Each miner files should be saved in a unique directory and possibly deleted after the reward is calculated
         """
 
-        edr_filename = None
+        filetypes = {}
         for filename, content in md_output.items():
-            if filename.endswith('.edr'):
-                edr_filename = filename
+            filetypes[filename.split('.')[-1]] = filename
             # loop over all of the output files and save to local disk
             with open(os.path.join(self.output_directory, filename), 'wb') as f:
                 f.write(content)
 
-        if not edr_filename:
-            bt.logging.error('No .edr file found in md_output, so reward is zero!')
+        edr = filetypes.get('edr')
+        if not edr:
+            bt.logging.error(f'No .edr file found in md_output ({list(md_output.keys())}), so reward is zero!')
+            return 0
+
+        gro = filetypes.get('gro')
+        if not gro:
+            bt.logging.error(f'No .gro file found in md_output ({list(md_output.keys())}), so reward is zero!')
+            return 0
+        if self.gro_hash(self.gro_path) != self.gro_hash(gro):
+            bt.logging.error(f'The hash for .gro file is incorrect, so reward is zero!')
             return 0
 
         commands = [
-            f'echo "13"  | gmx energy -f {edr_filename} -o free_energy.xvg'
+            f'echo "13"  | gmx energy -f {edr} -o free_energy.xvg'
         ]
 
         # TODO: we still need to check that the following commands are run successfully
