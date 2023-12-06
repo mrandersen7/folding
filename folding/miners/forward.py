@@ -30,21 +30,18 @@ def forward(synapse: folding.protocol.Synapse) -> folding.protocol.Synapse:
 
     # Commands to run GROMACS simulations
     # TODO: investigate how to run GROMACS simulations in parallel/ on GPUs
-    # TODO: investigate the use of python API instead of command line
-    commands = [
-            'gmx grompp -f nvt.mdp -c em.gro -r em.gro -p topol.top -o nvt.tpr', # Temperature equilibration
-            'gmx mdrun -deffnm nvt ' + synapse.mdrun_args,
-            'gmx grompp -f npt.mdp -c nvt.gro -r nvt.gro -t nvt.cpt -p topol.top -o npt.tpr', # Pressure equilibration
-            'gmx mdrun -deffnm npt ' + synapse.mdrun_args,
-            'gmx grompp -f md.mdp -c npt.gro -t npt.cpt -p topol.top -o md_0_1.tpr', # Production run
-            'gmx mdrun -deffnm md_0_1 ' + synapse.mdrun_args
-    ]
+    # TODO: rework how we want md_run_args to work/what default values are
+    # TODO: bt.logging.info was incorporated before, integrate it here
+    
+    gromacs.grompp(f="nvt.mdp", c="em.gro", r ="em.gro", p="topol.top", o="nvt.tpr") # Temperature equilibration
+    gromacs.mdrun(v=True, deffnm="nvt") #, maxh =1)
 
-    for cmd in tqdm.tqdm(commands):
-        # We want to catch any errors that occur in the above steps and then return the error to the user
-        bt.logging.info(f"Running GROMACS command: {cmd}")
-        os.system(cmd)
+    gromacs.grompp(f="npt.mdp", c="nvt.gro", r ="nvt.gro", t='nvt.cpt' p="topol.top", o="npt.tpr") # Pressure equilibration
+    gromacs.mdrun(v=True, deffnm="npt") #, maxh =1)
 
+    gromacs.grompp(f="md.mdp", c="npt.gro", r ="npt.gro", p="topol.top", o="md_0_1.tpr") # Production run
+    gromacs.mdrun(v=True, deffnm="md_0_1") #, maxh =1)
+    
 
     # load the output files as bytes and add to synapse.md_output
     for filename in glob.glob('md_0_1.*'):

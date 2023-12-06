@@ -3,6 +3,7 @@ import os
 import re
 import tqdm
 import requests
+import gromacs
 
 import bittensor as bt
 
@@ -91,19 +92,20 @@ class Protein:
         os.chdir(self.output_directory)
 
         # Commands to generate GROMACS input files
-        commands = [
-            f'gmx pdb2gmx -f {self.pdb_id}.pdb -ff {self.ff} -o processed.gro -water spce', # Input the file into GROMACS and get three output files: topology, position restraint, and a post-processed structure file
-            f'gmx editconf -f processed.gro -o newbox.gro -c -d 1.0 -bt {self.box}', # Build the "box" to run our simulation of one protein molecule
-            'gmx solvate -cp newbox.gro -cs spc216.gro -o solvated.gro -p topol.top',
-            'touch ions.mdp', # Create a file to add ions to the system
-            'gmx grompp -f ions.mdp -c solvated.gro -p topol.top -o ions.tpr',
-            'echo "13" | gmx genion -s ions.tpr -o solv_ions.gro -p topol.top -pname NA -nname CL -neutral',
-        ]
+        gromacs.pdb2gmx(f={self.pdb_id}.pdb, o="processed.gro", p="topol.top", ff={self.ff} , water="tip3p") # Input the file into GROMACS and get three output files: topology, position restraint, and a post-processed structure file
+        gromacs.editconf(f="processed.gro", o="newbox.gro", bt={self.box2}, d=1.0, princ=True, input="Protein")
+        gromacs.solvate(cp="newbox.gro", cs="spc216.gro", p="topol.top", o="solvated.gro")
+        open("ions.mdp", 'w')
+        gromacs.grompp(f="ions.mdp", c="solvated.gro", p="topol.top", o="ions.tpr")
+        
+        #TODO Make this more pythonic. The input in editconf works, so why not here?
+        #gromacs.genion(s="ions.tpr", o="protein_solv.gro", conc = 0.15, p="topol.top", pname="NA", nname="CL", neutral=True, input="13")
+        os.system('echo "13" | gmx genion -s ions.tpr -o solv_ions.gro -p topol.top -pname NA -nname CL -neutral')
+
         # Run the first step of the simulation
-        commands += [
-            'gmx grompp -f ../minim.mdp -c solv_ions.gro -p topol.top -o em.tpr',
-            'gmx mdrun -v -deffnm em' # Run energy minimization
-        ]
+        gromacs.grompp(f="../minim.mdp", c="solv_ions.gro", p="topol.top", o="em.tpr")
+        gromacs.mdrun(v=True, deffnm="em") # Run energy minimization
+        
 
         # strip away trailing number in forcefield name e.g charmm27 -> charmm
         ff_base = ''.join([c for c in self.ff if not c.isdigit()])
@@ -153,6 +155,7 @@ class Protein:
             bt.logging.error(f'The hash for .gro file is incorrect, so reward is zero!')
             return 0
 
+        #TODO Make this more pythonic, finish validation mechanism
         commands = [
             f'echo "13"  | gmx energy -f {edr} -o free_energy.xvg'
         ]
